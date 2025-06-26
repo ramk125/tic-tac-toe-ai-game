@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tic Tac Toe - Smart AI</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon-192.png" type="image/png" />
+  <style>
+    :root {
+      --bg-light: #ffffff;
+      --bg-dark: #121212;
+      --text-light: #000000;
+      --text-dark: #ffffff;
+      --cell-bg-light: #f0f0f0;
+      --cell-bg-dark: #1f1f1f;
+      --accent: #0970c4;
+      --win: #4caf50;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-color: rgb(16, 89, 138);
+      color: var(--text-dark);
+      margin: 0;
+      padding: 0;
+      transition: background-color 0.5s, color 0.5s;
+    }
+
+    .container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 60vh;
+      
+    }
+
+    .game {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      grid-template-rows: repeat(3, 100px);
+      gap: 10px;
+      
+    }
+
+    .cell {
+      width: 100px;
+      height: 100px;
+      background-color: rgb(44, 194, 119);
+      border: 1px solid #ccc;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 8vmin;
+      cursor: pointer;
+      border-radius: 10px;
+      color: rgb(16, 18, 126);
+      transition: background-color 0.5s, transform 0.2s;
+       box-shadow: 1px 1px 5px 1px rgba(12, 2, 3, 0.2); /* Initial shadow */
+  transition: box-shadow 0.3s ease; /* Smooth transition */
+    }
+
+    .cell:hover {
+      transform: scale(1.05);
+    }
+
+    .btns { margin-top: 20px; }
+
+    button {
+      margin: 5px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      background-color: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+
+    .message { font-size: 24px; margin-top: 20px; }
+    .scoreboard { margin-top: 10px; font-size: 18px; }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 20px;
+    }
+
+    .toggle {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <h1>Tic Tac Toe</h1>
+    <div class="toggle">
+      <label><input type="checkbox" id="aiModeToggle"> AI Mode</label>
+      <label><input type="checkbox" id="darkModeToggle"> Dark Mode</label>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="game">
+      <div class="cell"></div><div class="cell"></div><div class="cell"></div>
+      <div class="cell"></div><div class="cell"></div><div class="cell"></div>
+      <div class="cell"></div><div class="cell"></div><div class="cell"></div>
+    </div>
+  </div>
+
+  <div class="message" id="message">Current Turn: X</div>
+  <div class="scoreboard" id="scoreboard"></div>
+  <div class="btns">
+    <button id="newGameBtn">New Game</button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+  <script>
+    const cells = document.querySelectorAll(".cell");
+    const newGameBtn = document.getElementById("newGameBtn");
+    const message = document.getElementById("message");
+    const scoreboard = document.getElementById("scoreboard");
+    const aiToggle = document.getElementById("aiModeToggle");
+    const darkToggle = document.getElementById("darkModeToggle");
+
+    let board = Array(9).fill("");
+    let turn = "X";
+    let isGameOver = false;
+
+    let score = {
+      X: parseInt(localStorage.getItem("scoreX")) || 0,
+      O: parseInt(localStorage.getItem("scoreO")) || 0,
+      Draw: parseInt(localStorage.getItem("scoreDraw")) || 0
+    };
+
+    const winPatterns = [
+      [0,1,2],[3,4,5],[6,7,8],
+      [0,3,6],[1,4,7],[2,5,8],
+      [0,4,8],[2,4,6]
+    ];
+
+    function updateUI() {
+      board.forEach((val, i) => {
+        cells[i].innerText = val;
+        cells[i].style.pointerEvents = val || isGameOver ? "none" : "auto";
+      });
+    }
+
+    function checkWinner(b) {
+      for (let pattern of winPatterns) {
+        const [a, b1, c] = pattern;
+        if (b[a] && b[a] === b[b1] && b[b1] === b[c]) return b[a];
+      }
+      return null;
+    }
+
+    function isDraw(b) {
+      return b.every(cell => cell);
+    }
+
+    function minimax(b, isMax) {
+      const winner = checkWinner(b);
+      if (winner === "O") return 1;
+      if (winner === "X") return -1;
+      if (isDraw(b)) return 0;
+
+      let best = isMax ? -Infinity : Infinity;
+
+      for (let i = 0; i < 9; i++) {
+        if (!b[i]) {
+          b[i] = isMax ? "O" : "X";
+          const score = minimax(b, !isMax);
+          b[i] = "";
+          best = isMax ? Math.max(score, best) : Math.min(score, best);
+        }
+      }
+      return best;
+    }
+
+    function bestMove() {
+      let bestScore = -Infinity;
+      let move = -1;
+
+      for (let i = 0; i < 9; i++) {
+        if (!board[i]) {
+          board[i] = "O";
+          const score = minimax(board, false);
+          board[i] = "";
+          if (score > bestScore) {
+            bestScore = score;
+            move = i;
+          }
+        }
+      }
+
+      if (move > -1) {
+        board[move] = "O";
+        turn = "X";
+        updateGame();
+      }
+    }
+
+    function updateGame() {
+      updateUI();
+      const winner = checkWinner(board);
+
+      if (winner) {
+        message.innerText = `${winner} Wins!`;
+        score[winner]++;
+        isGameOver = true;
+        confetti();
+      } else if (isDraw(board)) {
+        message.innerText = "It's a Draw!";
+        score.Draw++;
+        isGameOver = true;
+      } else {
+        message.innerText = `Current Turn: ${turn}`;
+      }
+
+      localStorage.setItem("scoreX", score.X);
+      localStorage.setItem("scoreO", score.O);
+      localStorage.setItem("scoreDraw", score.Draw);
+      scoreboard.innerText = `X Wins: ${score.X} | O Wins: ${score.O} | Draws: ${score.Draw}`;
+
+      if (aiToggle.checked && turn === "O" && !isGameOver) {
+        setTimeout(bestMove, 300);
+      }
+    }
+
+    cells.forEach((cell, index) => {
+cell.addEventListener("click", () => {
+  if (!board[index] && !isGameOver) {
+    board[index] = turn;
+    turn = turn === "X" ? "O" : "X";
+    updateGame();
+  }
+});
+
+    });
+
+    newGameBtn.addEventListener("click", () => {
+      board = Array(9).fill("");
+      turn = "X";
+      isGameOver = false;
+      message.innerText = "Current Turn: X";
+      updateUI();
+    });
+
+    darkToggle.addEventListener("change", () => {
+      document.body.style.backgroundColor = darkToggle.checked ? "var(--bg-dark)" : "var(--bg-light)";
+      document.body.style.color = darkToggle.checked ? "var(--text-dark)" : "var(--text-light)";
+      cells.forEach(cell => cell.style.backgroundColor = darkToggle.checked ? "var(--cell-bg-dark)" : "var(--cell-bg-light)");
+    });
+
+    updateGame();
+  </script>
+</body>
+</html>
